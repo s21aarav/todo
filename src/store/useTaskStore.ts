@@ -62,7 +62,7 @@ interface TaskState {
   setSelectedDate: (date: string) => void;
   setShowTimeBlock: (show: boolean) => void;
   setShowTimer: (show: boolean) => void;
-  addTask: (task: NewTask) => Promise<void>;
+  addTask: (task: NewTask) => Promise<string>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   moveTask: (id: string, status: TaskStatus, scheduledTime?: string, date?: string) => Promise<void>;
@@ -141,7 +141,12 @@ export const useTaskStore = create<TaskState>()(
 
         // Async db update
         const { error } = await supabase.from('tasks').insert(newTask);
-        if (error) console.error("Error adding task:", error);
+        if (error) {
+          console.error('Error adding task to Supabase:', error);
+          set((state) => ({ tasks: state.tasks.filter((t) => t.id !== newTask.id) }));
+        }
+
+        return newTask.id;
       },
 
       updateTask: async (id, updates) => {

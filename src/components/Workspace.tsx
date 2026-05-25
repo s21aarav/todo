@@ -30,6 +30,8 @@ import { useAuth } from '@/components/AuthProvider';
 import { useGoalStore } from '@/store/useGoalStore';
 import { getQuoteOfDay } from '@/lib/quotes';
 
+import { supabase } from '@/lib/supabase';
+
 type MobileView = 'plan' | 'queue' | 'blocks';
 
 const MOBILE_VIEWS: { label: string; value: MobileView; icon: typeof CalendarDays }[] = [
@@ -151,6 +153,17 @@ export default function Workspace() {
               </div>
               <div className="flex items-center gap-3 sm:absolute sm:-top-2 sm:-right-2">
                 <span className="hidden text-sm font-medium text-gray-400 sm:block">Hello, {username}</span>
+                <button
+                  onClick={async () => {
+                    if (window.confirm('Are you sure you want to permanently delete your account? This cannot be undone.')) {
+                      await supabase.rpc('delete_user');
+                      handleSignOut();
+                    }
+                  }}
+                  className="text-[10px] text-red-500/60 hover:text-red-400 transition-colors uppercase tracking-widest font-semibold px-2"
+                >
+                  Delete Account
+                </button>
                 <button
                   onClick={handleSignOut}
                   className="flex items-center justify-center rounded-lg p-2 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400 sm:p-2.5"

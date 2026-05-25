@@ -15,6 +15,20 @@ function TimeSlot({ hour }: { hour: number }) {
 
   const tasks = useTaskStore((state) => state.tasks);
   const selectedDate = useTaskStore((state) => state.selectedDate);
+  const addTask = useTaskStore((state) => state.addTask);
+  const setSelectedTask = useTaskStore((state) => state.setSelectedTask);
+
+  const handleSlotClick = async (e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return;
+    const newId = await addTask({
+      title: 'New Block',
+      date: selectedDate,
+      status: 'scheduled',
+      scheduledTime: new Date(`${selectedDate}T${timeString}:00`).toISOString(),
+      duration: 30,
+    });
+    setSelectedTask(newId);
+  };
   const scheduledTasks = tasks
     .filter((t) => {
       if (t.status !== 'scheduled' || !t.scheduledTime || t.date !== selectedDate) return false;
@@ -30,7 +44,8 @@ function TimeSlot({ hour }: { hour: number }) {
       </div>
       <div 
         ref={setNodeRef} 
-        className={`flex min-w-0 flex-col gap-1.5 p-2 transition-colors ${
+        onClick={handleSlotClick}
+        className={`flex min-w-0 flex-col gap-1.5 p-2 transition-colors cursor-pointer ${
           isOver ? 'bg-white/10' : 'hover:bg-white/5'
         }`}
       >
