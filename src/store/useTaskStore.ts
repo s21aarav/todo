@@ -108,7 +108,7 @@ export const useTaskStore = create<TaskState>()(
               } else if (payload.eventType === 'UPDATE') {
                 set({ tasks: currentTasks.map(t => t.id === payload.new.id ? payload.new as Task : t) });
               } else if (payload.eventType === 'DELETE') {
-                set({ tasks: currentTasks.filter(t => t.id === payload.old.id) });
+                set({ tasks: currentTasks.filter(t => t.id !== payload.old.id) });
               }
             }
           )
