@@ -10,19 +10,24 @@ export default function AuthScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setSuccessMsg(null);
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw error;
+        if (data.user && !data.session) {
+          setSuccessMsg('A confirmation link has been sent to your email. Please check your inbox.');
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -44,7 +49,7 @@ export default function AuthScreen() {
           <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-white/5 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
             <Sparkles className="text-white" size={24} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Space UI</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">ToDoYourDo</h1>
           <p className="mt-1.5 text-sm text-gray-400">
             {isSignUp ? 'Create an account to save tasks.' : 'Welcome back to your workspace.'}
           </p>
@@ -54,6 +59,11 @@ export default function AuthScreen() {
           {error && (
             <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-200">
               {error}
+            </div>
+          )}
+          {successMsg && (
+            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-200">
+              {successMsg}
             </div>
           )}
           
@@ -103,6 +113,7 @@ export default function AuthScreen() {
             onClick={() => {
               setIsSignUp(!isSignUp);
               setError(null);
+              setSuccessMsg(null);
             }}
             className="font-medium text-white hover:underline"
           >
