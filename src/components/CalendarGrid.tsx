@@ -5,7 +5,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import TaskCard from './TaskCard';
 import { format, parseISO } from 'date-fns';
 
-const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 6 AM to 11 PM
+const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0 to 23
 
 function TimeSlot({ hour }: { hour: number }) {
   const timeString = `${hour.toString().padStart(2, '0')}:00`;
@@ -31,7 +31,7 @@ function TimeSlot({ hour }: { hour: number }) {
   };
   const scheduledTasks = tasks
     .filter((t) => {
-      if (t.status !== 'scheduled' || !t.scheduledTime || t.date !== selectedDate) return false;
+      if ((t.status !== 'scheduled' && t.status !== 'completed') || !t.scheduledTime || t.date !== selectedDate) return false;
       const date = new Date(t.scheduledTime);
       return date.getHours() === hour;
     })
@@ -60,7 +60,7 @@ function TimeSlot({ hour }: { hour: number }) {
 export default function CalendarGrid() {
   const selectedDate = useTaskStore((state) => state.selectedDate);
   const tasks = useTaskStore((state) => state.tasks);
-  const scheduled = tasks.filter((task) => task.date === selectedDate && task.status === 'scheduled');
+  const scheduled = tasks.filter((task) => task.date === selectedDate && (task.status === 'scheduled' || task.status === 'completed') && !!task.scheduledTime);
   const minutes = scheduled.reduce((total, task) => total + (task.duration ?? 30), 0);
 
   return (
