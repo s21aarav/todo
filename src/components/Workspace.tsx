@@ -30,7 +30,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useGoalStore } from '@/store/useGoalStore';
 import { getQuoteOfDay } from '@/lib/quotes';
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabaseClient';
 
 type MobileView = 'plan' | 'queue' | 'blocks';
 
