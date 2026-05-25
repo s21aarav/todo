@@ -66,8 +66,8 @@ export default function GoalsWidget() {
   };
 
   return (
-    <div className="glass-panel flex h-full min-h-0 flex-col overflow-hidden rounded-xl p-3">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="glass-panel flex h-[500px] sm:h-full min-h-0 flex-col overflow-hidden rounded-xl p-3">
+      <div className="mb-3 flex shrink-0 items-center justify-between">
         <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
           <Target size={16} /> Long-Term Goals
         </h3>
