@@ -205,7 +205,7 @@ export default function GoalsWidget() {
                 
                 <button 
                   onClick={() => startEditing(goal)}
-                  className="absolute right-2 top-2 rounded p-1 text-gray-500 opacity-0 transition-all hover:bg-white/10 hover:text-white group-hover:opacity-100"
+                  className="absolute right-2 top-2 rounded p-1 text-gray-500 transition-all hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
                   title="Edit goal"
                 >
                   <Edit2 size={14} />
