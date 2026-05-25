@@ -14,10 +14,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   turbopack: {},
   allowedDevOrigins: ['10.52.162.113', 'http://10.52.162.113:3000'],
-  devIndicators: {
-    appIsrStatus: false,
-    buildActivity: false,
-  },
 };
 
 export default withPWA(nextConfig);
