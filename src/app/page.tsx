@@ -26,8 +26,8 @@ export default function Home() {
   }
 
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden p-3 sm:p-6">
-      <main className="flex-1 flex flex-col items-center min-h-0">
+    <div className="flex min-h-[100dvh] w-full flex-col p-3 sm:h-[100dvh] sm:overflow-hidden sm:p-6">
+      <main className="flex-1 flex flex-col items-center sm:min-h-0">
         <Workspace />
       </main>
       <TaskModal />

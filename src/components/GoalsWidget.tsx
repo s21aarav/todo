@@ -66,7 +66,7 @@ export default function GoalsWidget() {
   };
 
   return (
-    <div className="glass-panel flex h-[500px] sm:h-full min-h-0 flex-col overflow-hidden rounded-xl p-3">
+    <div className="glass-panel flex min-h-[300px] flex-col rounded-xl p-3 sm:h-full sm:min-h-0 sm:overflow-hidden">
       <div className="mb-3 flex shrink-0 items-center justify-between">
         <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
           <Target size={16} /> Long-Term Goals
@@ -79,7 +79,7 @@ export default function GoalsWidget() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto [scrollbar-width:none] min-h-0">
+      <div className="flex-1 sm:min-h-0 sm:overflow-y-auto sm:[scrollbar-width:none]">
         {isAdding && (
           <form onSubmit={handleAddGoal} className="mb-4 flex flex-col gap-2 rounded-lg border border-dashed border-white/20 p-3">
             <input

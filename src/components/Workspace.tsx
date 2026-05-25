@@ -132,7 +132,7 @@ export default function Workspace() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex h-full min-h-0 w-full max-w-[1540px] flex-1 flex-col gap-3 sm:gap-4">
+      <div className="flex w-full max-w-[1540px] flex-1 flex-col gap-3 sm:h-full sm:min-h-0 sm:gap-4">
         {!isExpanded && (
           <header className="glass-panel flex shrink-0 flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 relative">
             <div className="min-w-0 flex items-start justify-between sm:block">
@@ -179,7 +179,7 @@ export default function Workspace() {
           </header>
         )}
 
-        <div className="relative flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
+        <div className="relative flex flex-1 flex-col gap-3 sm:min-h-0 lg:flex-row lg:gap-4">
           <div className={`hidden min-h-0 flex-col gap-4 overflow-hidden transition-all duration-300 lg:flex ${isExpanded ? 'w-full flex-1' : 'lg:flex-[0.78]'}`}>
             <div className={isExpanded ? 'min-h-0 flex-1' : 'min-h-0 shrink-0'}>
               <SleekCalendar isExpanded={isExpanded} onToggleExpand={() => setIsExpanded(!isExpanded)} />
@@ -210,7 +210,7 @@ export default function Workspace() {
           )}
 
           {!isExpanded && (
-            <div className="flex min-h-0 flex-1 flex-col gap-3 lg:hidden">
+            <div className="flex flex-1 flex-col gap-3 sm:min-h-0 lg:hidden">
               {showTimer && <FocusTimer />}
               <div className="glass-panel grid shrink-0 grid-cols-3 gap-1 rounded-xl p-1">
                 {MOBILE_VIEWS.map((item) => {
@@ -233,9 +233,9 @@ export default function Workspace() {
                 })}
               </div>
 
-              <div className={`${mobileView === 'plan' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col gap-3 overflow-hidden`}>
+              <div className={`${mobileView === 'plan' ? 'flex' : 'hidden'} flex-1 flex-col gap-3 sm:min-h-0 sm:overflow-hidden`}>
                 <SleekCalendar isExpanded={false} onToggleExpand={() => setIsExpanded(true)} />
-                <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="flex-1 pb-6 sm:min-h-0 sm:overflow-y-auto">
                   <div className="flex flex-col gap-3">
                     <GoalsWidget />
                     <UpcomingEvents />
@@ -243,11 +243,11 @@ export default function Workspace() {
                 </div>
               </div>
 
-              <div className={`${mobileView === 'queue' ? 'flex' : 'hidden'} glass-panel min-h-0 flex-1 flex-col overflow-hidden rounded-xl`}>
+              <div className={`${mobileView === 'queue' ? 'flex' : 'hidden'} glass-panel flex-1 flex-col rounded-xl sm:min-h-0 sm:overflow-hidden`}>
                 <BacklogList />
               </div>
 
-              <div className={`${mobileView === 'blocks' ? 'flex' : 'hidden'} glass-panel min-h-0 flex-1 flex-col overflow-hidden rounded-xl`}>
+              <div className={`${mobileView === 'blocks' ? 'flex' : 'hidden'} glass-panel flex-1 flex-col rounded-xl sm:min-h-0 sm:overflow-hidden`}>
                 <CalendarGrid />
               </div>
             </div>
