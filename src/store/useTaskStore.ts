@@ -67,6 +67,7 @@ interface TaskState {
   addSubtask: (taskId: string, title: string) => Promise<void>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   deleteSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  clearTasks: () => void;
 }
 
 export const useTaskStore = create<TaskState>()(
@@ -78,6 +79,8 @@ export const useTaskStore = create<TaskState>()(
       showTimeBlock: false,
       showTimer: false,
       isLoading: false,
+
+      clearTasks: () => set({ tasks: [] }),
 
       fetchTasks: async () => {
         set({ isLoading: true });

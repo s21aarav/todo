@@ -23,9 +23,9 @@ import FocusTimer from './FocusTimer';
 import SleekCalendar from './SleekCalendar';
 import UpcomingEvents from './UpcomingEvents';
 import MissionPulse from './MissionPulse';
-import { format, parseISO } from 'date-fns';
-import { CalendarCheck2, CalendarDays, Clock3, ListTodo, Sparkles } from 'lucide-react';
+import { LogOut, CalendarCheck2, CalendarDays, Clock3, ListTodo, Sparkles } from 'lucide-react';
 import { useIsClient } from '@/hooks/useIsClient';
+import { useAuth } from '@/components/AuthProvider';
 
 type MobileView = 'plan' | 'queue' | 'blocks';
 
@@ -56,6 +56,13 @@ export default function Workspace() {
   
   // Hydration fix for zustand
   const mounted = useIsClient();
+  const { signOut } = useAuth();
+  const clearTasks = useTaskStore(state => state.clearTasks);
+
+  const handleSignOut = async () => {
+    clearTasks();
+    await signOut();
+  };
 
   const fetchTasks = useTaskStore(state => state.fetchTasks);
   useEffect(() => {
@@ -123,15 +130,24 @@ export default function Workspace() {
     >
       <div className="flex h-full min-h-0 w-full max-w-[1540px] flex-1 flex-col gap-3 sm:gap-4">
         {!isExpanded && (
-          <header className="glass-panel flex shrink-0 flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200/80 sm:text-xs">
-                <Sparkles size={14} />
-                Orbit planner
+          <header className="glass-panel flex shrink-0 flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 relative">
+            <div className="min-w-0 flex items-start justify-between sm:block">
+              <div>
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200/80 sm:text-xs">
+                  <Sparkles size={14} />
+                  Orbit planner
+                </div>
+                <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-3xl">
+                  {selectedLabel}
+                </h1>
               </div>
-              <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-3xl">
-                {selectedLabel}
-              </h1>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center justify-center rounded-lg p-2 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400 sm:absolute sm:-top-2 sm:-right-2 sm:p-2.5"
+                title="Sign out"
+              >
+                <LogOut size={16} />
+              </button>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs sm:min-w-[420px] sm:text-sm">
               <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2 sm:p-3">

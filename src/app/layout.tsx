@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import StarfieldBackground from "@/components/StarfieldBackground";
+import { AuthProvider } from "@/components/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,10 +39,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className="h-full overflow-hidden flex flex-col text-gray-100 selection:bg-emerald-300/30 selection:text-white">
-        <StarfieldBackground />
-        <main className="min-h-0 flex-1 flex flex-col z-10 relative">
-          {children}
-        </main>
+        <AuthProvider>
+          <StarfieldBackground />
+          <main className="min-h-0 flex-1 flex flex-col z-10 relative">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );
