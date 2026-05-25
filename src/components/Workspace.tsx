@@ -143,9 +143,9 @@ export default function Workspace() {
           <header className="glass-panel flex shrink-0 flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 relative">
             <div className="min-w-0 flex items-start justify-between sm:block">
               <div>
-                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200/80 sm:text-xs">
-                  <Sparkles size={14} className="shrink-0" />
-                  <span className="truncate max-w-[200px] sm:max-w-md">{quote}</span>
+                <div className="flex items-start gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200/80 sm:text-xs">
+                  <Sparkles size={14} className="shrink-0 mt-0.5" />
+                  <span className="leading-snug max-w-[260px] sm:max-w-md">{quote}</span>
                 </div>
                 <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-3xl">
                   {selectedLabel}
@@ -245,11 +245,11 @@ export default function Workspace() {
                 </div>
               </div>
 
-              <div className={`${mobileView === 'queue' ? 'flex' : 'hidden'} glass-panel flex-1 flex-col rounded-xl sm:min-h-0 sm:overflow-hidden`}>
+              <div className={`${mobileView === 'queue' ? 'flex' : 'hidden'} glass-panel h-[calc(100dvh-150px)] flex-col rounded-xl sm:h-auto sm:flex-1 sm:min-h-0 sm:overflow-hidden`}>
                 <BacklogList />
               </div>
 
-              <div className={`${mobileView === 'blocks' ? 'flex' : 'hidden'} glass-panel flex-1 flex-col rounded-xl sm:min-h-0 sm:overflow-hidden`}>
+              <div className={`${mobileView === 'blocks' ? 'flex' : 'hidden'} glass-panel h-[calc(100dvh-150px)] flex-col rounded-xl sm:h-auto sm:flex-1 sm:min-h-0 sm:overflow-hidden`}>
                 <CalendarGrid />
               </div>
             </div>
