@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Orbit Planner",
   description: "A focused daily planning workspace for tasks, time blocks, and deep work.",
+  appleWebApp: {
+    capable: true,
+    title: "Orbit",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
