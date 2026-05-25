@@ -28,6 +28,7 @@ import { LogOut, CalendarCheck2, CalendarDays, Clock3, ListTodo, Sparkles } from
 import { useIsClient } from '@/hooks/useIsClient';
 import { useAuth } from '@/components/AuthProvider';
 import { useGoalStore } from '@/store/useGoalStore';
+import { getQuoteOfDay } from '@/lib/quotes';
 
 type MobileView = 'plan' | 'queue' | 'blocks';
 
@@ -58,7 +59,7 @@ export default function Workspace() {
   
   // Hydration fix for zustand
   const mounted = useIsClient();
-  const { signOut } = useAuth();
+  const { session, signOut } = useAuth();
   const clearTasks = useTaskStore(state => state.clearTasks);
   const clearGoals = useGoalStore(state => state.clearGoals);
 
@@ -124,6 +125,9 @@ export default function Workspace() {
   }, 0);
   const totalOpen = dayTasks.filter((task) => task.status !== 'completed').length;
   const selectedLabel = format(parseISO(selectedDate), 'EEE, MMM d');
+  
+  const username = session?.user?.user_metadata?.username || 'Astronaut';
+  const quote = getQuoteOfDay();
 
   return (
     <DndContext
@@ -138,20 +142,23 @@ export default function Workspace() {
             <div className="min-w-0 flex items-start justify-between sm:block">
               <div>
                 <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200/80 sm:text-xs">
-                  <Sparkles size={14} />
-                  Orbit planner
+                  <Sparkles size={14} className="shrink-0" />
+                  <span className="truncate max-w-[200px] sm:max-w-md">{quote}</span>
                 </div>
                 <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-3xl">
                   {selectedLabel}
                 </h1>
               </div>
-              <button
-                onClick={handleSignOut}
-                className="flex items-center justify-center rounded-lg p-2 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400 sm:absolute sm:-top-2 sm:-right-2 sm:p-2.5"
-                title="Sign out"
-              >
-                <LogOut size={16} />
-              </button>
+              <div className="flex items-center gap-3 sm:absolute sm:-top-2 sm:-right-2">
+                <span className="hidden text-sm font-medium text-gray-400 sm:block">Hello, {username}</span>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center justify-center rounded-lg p-2 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400 sm:p-2.5"
+                  title="Sign out"
+                >
+                  <LogOut size={16} />
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs sm:min-w-[420px] sm:text-sm">
               <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2 sm:p-3">

@@ -7,6 +7,7 @@ import { Sparkles, Mail, Lock, Loader2 } from 'lucide-react';
 export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,9 +21,20 @@ export default function AuthScreen() {
 
     try {
       if (isSignUp) {
+        if (!username.trim()) {
+          setError('Username is required');
+          setIsLoading(false);
+          return;
+        }
+        
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              username: username.trim(),
+            }
+          }
         });
         if (error) throw error;
         
@@ -70,6 +82,22 @@ export default function AuthScreen() {
           {successMsg && (
             <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-200">
               {successMsg}
+            </div>
+          )}
+
+          {isSignUp && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-400 ml-1">Username</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required={isSignUp}
+                  className="w-full rounded-lg border border-white/10 bg-white/[0.04] py-2.5 px-4 text-sm text-white placeholder:text-gray-600 focus:border-white/20 focus:outline-none transition-colors"
+                  placeholder="SpaceExplorer"
+                />
+              </div>
             </div>
           )}
           
