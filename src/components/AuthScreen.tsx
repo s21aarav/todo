@@ -25,9 +25,15 @@ export default function AuthScreen() {
           password,
         });
         if (error) throw error;
-        if (data.user && !data.session) {
-          setSuccessMsg('A confirmation link has been sent to your email. Please check your inbox.');
+        
+        // Supabase returns an empty identities array if the email already exists
+        if (data.user?.identities?.length === 0) {
+          setError('An account with this email already exists.');
+          setIsLoading(false);
+          return;
         }
+
+        setSuccessMsg('A confirmation link has been sent to your email. Please check your inbox.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
