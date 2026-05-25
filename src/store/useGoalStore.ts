@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
 export interface Goal {
   id: string;
   title: string;
+  start_date?: string; // ISO format string
   target_date: string; // ISO format string
   total_value?: number | null;
   current_value?: number | null;
