@@ -23,6 +23,7 @@ import FocusTimer from './FocusTimer';
 import SleekCalendar from './SleekCalendar';
 import UpcomingEvents from './UpcomingEvents';
 import MissionPulse from './MissionPulse';
+import UserProfile from './UserProfile';
 import { format, parseISO } from 'date-fns';
 import { LogOut, CalendarCheck2, CalendarDays, Clock3, ListTodo, Sparkles } from 'lucide-react';
 import { useIsClient } from '@/hooks/useIsClient';
@@ -128,7 +129,6 @@ export default function Workspace() {
   const totalOpen = dayTasks.filter((task) => task.status !== 'completed').length;
   const selectedLabel = format(parseISO(selectedDate), 'EEE, MMM d');
   
-  const username = session?.user?.user_metadata?.username || 'Astronaut';
   const quote = getQuoteOfDay();
 
   return (
@@ -151,26 +151,8 @@ export default function Workspace() {
                   {selectedLabel}
                 </h1>
               </div>
-              <div className="flex items-center gap-3 sm:absolute sm:-top-2 sm:-right-2">
-                <span className="hidden text-sm font-medium text-gray-400 sm:block">Hello, {username}</span>
-                <button
-                  onClick={async () => {
-                    if (window.confirm('Are you sure you want to permanently delete your account? This cannot be undone.')) {
-                      await supabase.rpc('delete_user');
-                      handleSignOut();
-                    }
-                  }}
-                  className="text-[10px] text-red-500/60 hover:text-red-400 transition-colors uppercase tracking-widest font-semibold px-2"
-                >
-                  Delete Account
-                </button>
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center justify-center rounded-lg p-2 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400 sm:p-2.5"
-                  title="Sign out"
-                >
-                  <LogOut size={16} />
-                </button>
+              <div className="sm:hidden absolute right-4 top-3">
+                <UserProfile />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs sm:min-w-[420px] sm:text-sm">
@@ -279,6 +261,11 @@ export default function Workspace() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Desktop Profile Widget */}
+      <div className="hidden sm:block fixed bottom-6 right-6 z-50">
+        <UserProfile isDesktop />
       </div>
 
       <DragOverlay>
