@@ -27,6 +27,7 @@ import { format, parseISO } from 'date-fns';
 import { LogOut, CalendarCheck2, CalendarDays, Clock3, ListTodo, Sparkles } from 'lucide-react';
 import { useIsClient } from '@/hooks/useIsClient';
 import { useAuth } from '@/components/AuthProvider';
+import { useGoalStore } from '@/store/useGoalStore';
 
 type MobileView = 'plan' | 'queue' | 'blocks';
 
@@ -59,9 +60,11 @@ export default function Workspace() {
   const mounted = useIsClient();
   const { signOut } = useAuth();
   const clearTasks = useTaskStore(state => state.clearTasks);
+  const clearGoals = useGoalStore(state => state.clearGoals);
 
   const handleSignOut = async () => {
     clearTasks();
+    clearGoals();
     await signOut();
   };
 
