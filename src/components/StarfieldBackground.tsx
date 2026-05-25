@@ -2,6 +2,23 @@
 
 import { useEffect, useRef } from "react";
 
+interface Star {
+  x: number;
+  y: number;
+  size: number;
+  speed: number;
+  opacity: number;
+}
+
+interface Comet {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  length: number;
+  opacity: number;
+}
+
 export default function StarfieldBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -27,7 +44,7 @@ export default function StarfieldBackground() {
     setCanvasSize();
     window.addEventListener("resize", setCanvasSize);
 
-    const stars: { x: number; y: number; size: number; speed: number; opacity: number }[] = [];
+    const stars: Star[] = [];
     const numStars = 800;
 
     for (let i = 0; i < numStars; i++) {
@@ -35,14 +52,17 @@ export default function StarfieldBackground() {
         x: Math.random() * width,
         y: Math.random() * height,
         size: Math.random() * 1.5 + 0.2,
-        speed: Math.random() * 0.05 + 0.01,
+        speed: Math.random() * 0.3 + 0.05, // Sped up the stars!
         opacity: Math.random() * 0.6 + 0.2,
       });
     }
 
+    const comets: Comet[] = [];
+
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
 
+      // Draw stars
       for (const star of stars) {
         star.y -= star.speed;
 
@@ -59,6 +79,55 @@ export default function StarfieldBackground() {
         ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
         ctx.fill();
+      }
+
+      // Randomly spawn comets (0.5% chance per frame)
+      if (Math.random() < 0.005) {
+        const spawnRight = Math.random() > 0.5;
+        const spawnX = spawnRight ? width + 50 : Math.random() * width;
+        const spawnY = spawnRight ? Math.random() * height * 0.5 : -50;
+        
+        comets.push({
+          x: spawnX,
+          y: spawnY,
+          vx: -(Math.random() * 5 + 5), // Fast to the left
+          vy: Math.random() * 3 + 3,    // Fast downwards
+          length: Math.random() * 100 + 80,
+          opacity: 1,
+        });
+      }
+
+      // Draw comets
+      for (let i = comets.length - 1; i >= 0; i--) {
+        const comet = comets[i];
+        comet.x += comet.vx;
+        comet.y += comet.vy;
+        comet.opacity -= 0.003; // Fade out slowly
+
+        if (comet.opacity <= 0 || comet.x < -comet.length || comet.y > height + comet.length) {
+          comets.splice(i, 1);
+          continue;
+        }
+
+        const speed = Math.sqrt(comet.vx * comet.vx + comet.vy * comet.vy);
+        const tailX = comet.x - (comet.vx / speed) * comet.length;
+        const tailY = comet.y - (comet.vy / speed) * comet.length;
+
+        const gradient = ctx.createLinearGradient(comet.x, comet.y, tailX, tailY);
+        gradient.addColorStop(0, `rgba(255, 255, 255, ${comet.opacity})`);
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+        ctx.beginPath();
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = `rgba(255, 255, 255, ${comet.opacity})`;
+        
+        ctx.moveTo(comet.x, comet.y);
+        ctx.lineTo(tailX, tailY);
+        ctx.stroke();
+        
+        ctx.shadowBlur = 0; // reset for next drawing operations
       }
     };
 
