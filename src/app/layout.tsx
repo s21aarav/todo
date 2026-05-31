@@ -15,17 +15,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Orbit Planner",
-  description: "A focused daily planning workspace for tasks, time blocks, and deep work.",
+  title: "ToDoYourDo",
+  description: "Your premium productivity workspace — plan, schedule, and conquer your day.",
   appleWebApp: {
     capable: true,
-    title: "Orbit",
+    title: "ToDoYourDo",
     statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/icon-192.png",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#020202",
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -36,12 +43,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
     >
-      <body className="h-full overflow-hidden flex flex-col text-gray-100 selection:bg-emerald-300/30 selection:text-white">
+      <body className="flex min-h-[100dvh] flex-col text-neutral-200 lg:h-[100dvh] lg:overflow-hidden">
         <AuthProvider>
           <StarfieldBackground />
-          <main className="min-h-0 flex-1 flex flex-col z-10 relative">
+          <main className="relative z-10 flex min-h-0 flex-1 flex-col">
             {children}
           </main>
         </AuthProvider>

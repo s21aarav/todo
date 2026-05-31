@@ -2,156 +2,150 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { Sparkles, Mail, Lock, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Sparkles, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function AuthScreen() {
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
     setSuccessMsg(null);
+    setIsLoading(true);
 
-    try {
-      if (isSignUp) {
-        if (!username.trim()) {
-          setError('Username is required');
-          setIsLoading(false);
-          return;
-        }
-        
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: username.trim(),
-            }
-          }
-        });
-        if (error) throw error;
-        
-        // Supabase returns an empty identities array if the email already exists
-        if (data.user?.identities?.length === 0) {
-          setError('An account with this email already exists.');
-          setIsLoading(false);
-          return;
-        }
-
-        setSuccessMsg('A confirmation link has been sent to your email. Please check your inbox.');
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+    if (isSignUp) {
+      if (!username.trim()) {
+        setError('Username is required for sign up.');
+        setIsLoading(false);
+        return;
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
-    } finally {
-      setIsLoading(false);
+      
+      const { data: identityData, error: identityError } = await supabase
+        .from('identities')
+        .select('id')
+        .eq('identity_data->>email', email)
+        .single();
+        
+      if (identityData) {
+        setError("This email is already registered. Please sign in instead.");
+        setIsLoading(false);
+        return;
+      }
+
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: username,
+          }
+        }
+      });
+      if (signUpError) {
+        setError(signUpError.message);
+      } else {
+        setSuccessMsg('Account created successfully! You are now signed in.');
+      }
+    } else {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) setError(signInError.message);
     }
+    setIsLoading(false);
   };
 
   return (
-    <div className="flex h-full w-full items-center justify-center p-4 relative z-10">
-      <div className="glass-panel w-full max-w-sm rounded-2xl p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-500">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-white/5 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
-            <Sparkles className="text-white" size={24} />
+    <div className="flex h-screen w-full items-center justify-center p-4">
+      <div className="glass-card-strong w-full max-w-md p-8 animate-fade-in relative z-10 overflow-hidden">
+        
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <Sparkles size={32} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">ToDoYourDo</h1>
-          <p className="mt-1.5 text-sm text-gray-400">
-            {isSignUp ? 'Create an account to save tasks.' : 'Welcome back to your workspace.'}
-          </p>
+          <h1 className="mb-2 text-3xl font-bold text-white tracking-tight">ToDoYourDo</h1>
+          <p className="text-neutral-400">Your premium productivity workspace</p>
         </div>
 
+        {/* Messages */}
+        {error && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-red-400 animate-fade-in">
+            <AlertCircle size={20} className="shrink-0 mt-0.5" />
+            <p className="text-sm">{error}</p>
+          </div>
+        )}
+        {successMsg && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-emerald-400 animate-fade-in">
+            <CheckCircle2 size={20} className="shrink-0 mt-0.5" />
+            <p className="text-sm">{successMsg}</p>
+          </div>
+        )}
+
+        {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {error && (
-            <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-200">
-              {error}
-            </div>
-          )}
-          {successMsg && (
-            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-200">
-              {successMsg}
+          {isSignUp && (
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
+              <input
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full rounded-xl border border-white/[0.06] bg-black/40 py-3.5 pl-11 pr-4 text-white placeholder-neutral-500 focus:border-emerald-500/50 focus:bg-black/60 focus:outline-none transition-colors"
+                required
+              />
             </div>
           )}
 
-          {isSignUp && (
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-400 ml-1">Username</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required={isSignUp}
-                  className="w-full rounded-lg border border-white/10 bg-white/[0.04] py-2.5 px-4 text-sm text-white placeholder:text-gray-600 focus:border-white/20 focus:outline-none transition-colors"
-                  placeholder="SpaceExplorer"
-                />
-              </div>
-            </div>
-          )}
-          
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-400 ml-1">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full rounded-lg border border-white/10 bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-gray-600 focus:border-white/20 focus:outline-none transition-colors"
-                placeholder="astro@space.com"
-              />
-            </div>
+          <div className="relative">
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl border border-white/[0.06] bg-black/40 py-3.5 pl-11 pr-4 text-white placeholder-neutral-500 focus:border-emerald-500/50 focus:bg-black/60 focus:outline-none transition-colors"
+              required
+            />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-400 ml-1">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full rounded-lg border border-white/10 bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-gray-600 focus:border-white/20 focus:outline-none transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-white/[0.06] bg-black/40 py-3.5 pl-11 pr-4 text-white placeholder-neutral-500 focus:border-emerald-500/50 focus:bg-black/60 focus:outline-none transition-colors"
+              required
+              minLength={6}
+            />
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="mt-2 flex w-full items-center justify-center rounded-lg bg-white py-2.5 text-sm font-semibold text-black transition-all hover:bg-gray-200 disabled:opacity-50"
+            className="mt-2 flex w-full min-h-[48px] items-center justify-center rounded-xl bg-emerald-500 py-3.5 font-semibold text-black hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:ring-offset-2 focus:ring-offset-black disabled:opacity-50 transition-all duration-200"
           >
-            {isLoading ? <Loader2 size={16} className="animate-spin" /> : (isSignUp ? 'Sign Up' : 'Sign In')}
+            {isLoading ? <Loader2 className="animate-spin" size={20} /> : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+        <div className="mt-8 text-center">
           <button
             type="button"
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setError(null);
-              setSuccessMsg(null);
-            }}
-            className="font-medium text-white hover:underline"
+            onClick={() => { setIsSignUp(!isSignUp); setError(null); setSuccessMsg(null); }}
+            className="min-h-[44px] px-4 text-sm text-neutral-400 hover:text-white transition-colors"
           >
-            {isSignUp ? 'Sign In' : 'Sign Up'}
+            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
           </button>
         </div>
       </div>

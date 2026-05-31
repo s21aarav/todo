@@ -11,26 +11,20 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="flex h-dvh w-full items-center justify-center text-white/50">
-        <Loader2 size={24} className="animate-spin" />
+      <div className="flex h-[100dvh] w-full items-center justify-center">
+        <Loader2 size={24} className="animate-spin text-emerald-500" />
       </div>
     );
   }
 
   if (!session) {
-    return (
-      <div className="flex h-dvh w-full flex-col overflow-hidden">
-        <AuthScreen />
-      </div>
-    );
+    return <AuthScreen />;
   }
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col p-3 sm:h-[100dvh] sm:overflow-hidden sm:p-6">
-      <main className="flex-1 flex flex-col items-center sm:min-h-0">
-        <Workspace />
-      </main>
+    <>
+      <Workspace />
       <TaskModal />
-    </div>
+    </>
   );
 }

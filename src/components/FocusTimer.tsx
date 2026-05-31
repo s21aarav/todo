@@ -4,114 +4,118 @@ import { useState, useEffect } from 'react';
 import { Play, Square, Timer, RotateCcw } from 'lucide-react';
 import { useFocusStore } from '@/store/useFocusStore';
 
+const PRESETS = [
+  { label: '15m', value: 15 },
+  { label: '25m', value: 25 },
+  { label: '50m', value: 50 },
+];
+
 export default function FocusTimer() {
-  const isFocusModeActive = useFocusStore(state => state.isFocusModeActive);
-  const setIsFocusModeActive = useFocusStore(state => state.setIsFocusModeActive);
-  
+  const isFocusMode = useFocusStore((state) => state.isFocusModeActive);
+  const setFocusMode = useFocusStore((state) => state.setIsFocusModeActive);
+
+  // We keep timer state local as requested, but remove the full screen overlay
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [duration, setDuration] = useState(25 * 60);
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 min default
-  
+  const [isRunning, setIsRunning] = useState(false);
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isFocusModeActive && timeLeft > 0) {
+    if (isRunning && timeLeft > 0) {
       interval = setInterval(() => {
-        setTimeLeft(t => t - 1);
+        setTimeLeft((prev) => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
-      setIsFocusModeActive(false);
+    } else if (timeLeft === 0 && isRunning) {
+      setIsRunning(false);
+      setFocusMode(false);
+      // Could play a sound here
     }
     return () => clearInterval(interval);
-  }, [isFocusModeActive, timeLeft, setIsFocusModeActive]);
-  
+  }, [isRunning, timeLeft, setFocusMode]);
+
   const toggleTimer = () => {
-    setIsFocusModeActive(!isFocusModeActive);
+    setIsRunning(!isRunning);
+    setFocusMode(!isRunning);
   };
-  
+
   const resetTimer = () => {
+    setIsRunning(false);
+    setFocusMode(false);
     setTimeLeft(duration);
-    setIsFocusModeActive(false);
   };
 
-  const setPreset = (minutes: number) => {
-    const seconds = minutes * 60;
-    setDuration(seconds);
-    setTimeLeft(seconds);
-    setIsFocusModeActive(false);
-  };
-  
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  const setPreset = (mins: number) => {
+    setIsRunning(false);
+    setFocusMode(false);
+    setDuration(mins * 60);
+    setTimeLeft(mins * 60);
   };
 
-  const progress = Math.max(0, Math.min(100, ((duration - timeLeft) / duration) * 100));
+  const progress = ((duration - timeLeft) / duration) * 100;
+  const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+  const seconds = (timeLeft % 60).toString().padStart(2, '0');
 
   return (
-    <>
-      {isFocusModeActive && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-1000" />
+    <div className="glass-card p-5 animate-fade-in relative overflow-hidden group">
+      {/* Background progress indicator */}
+      {isRunning && (
+        <div 
+          className="absolute bottom-0 left-0 h-1 bg-emerald-500 transition-all duration-1000 ease-linear"
+          style={{ width: `${progress}%` }}
+        />
       )}
-      
-      <div className={`glass-panel relative z-50 flex flex-col gap-3 rounded-xl p-3 transition-all duration-500 ${
-        isFocusModeActive ? 'border-white/20 shadow-2xl bg-white/5' : ''
-      }`}>
-        <div className="flex items-center justify-between w-full">
-          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
-            <Timer size={16} className={isFocusModeActive ? 'animate-pulse' : ''} />
-            Focus Timer
-          </h3>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <span className={`font-mono text-3xl font-bold leading-none ${isFocusModeActive ? 'text-white' : 'text-gray-200'}`}>
-            {formatTime(timeLeft)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-emerald-300 transition-all" style={{ width: `${progress}%` }} />
-            </div>
+
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+          <Timer size={14} /> Focus Timer
+        </h3>
+        {!isRunning && (
+          <div className="flex gap-1">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => setPreset(preset.value)}
+                className={`min-h-[32px] rounded-md px-2 text-[10px] font-bold transition-colors ${
+                  duration === preset.value * 60
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'text-neutral-500 hover:bg-white/[0.06] hover:text-white'
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className={`text-4xl font-mono tracking-tight font-bold transition-colors ${
+          isRunning ? 'text-white glow-emerald drop-shadow-md' : 'text-neutral-400'
+        }`}>
+          {minutes}:{seconds}
         </div>
 
-        <div className="grid w-full grid-cols-3 gap-1 rounded-lg border border-white/10 bg-white/[0.04] p-1">
-          {[15, 25, 50].map((minutes) => (
-            <button
-              type="button"
-              key={minutes}
-              onClick={() => setPreset(minutes)}
-              className={`rounded-md px-2 py-1.5 text-xs font-semibold transition-colors ${
-                duration === minutes * 60
-                  ? 'bg-white text-black'
-                  : 'text-gray-400 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              {minutes}m
-            </button>
-          ))}
-        </div>
-        
-        <div className="flex w-full items-center gap-2">
-          <button 
-            onClick={toggleTimer}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-              isFocusModeActive 
-                ? 'border border-white/40 bg-white/20 text-white hover:bg-white/30' 
-                : 'border border-emerald-300/20 bg-emerald-300/15 text-emerald-50 hover:bg-emerald-300/20'
-            }`}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={resetTimer}
+            className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl text-neutral-500 hover:bg-white/[0.06] hover:text-white transition-colors"
+            title="Reset"
           >
-            {isFocusModeActive ? <><Square size={16} /> Stop</> : <><Play size={16} /> Start</>}
+            <RotateCcw size={18} />
           </button>
           
-          <button 
-            onClick={resetTimer}
-            title="Reset timer"
-            className="grid size-10 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
+          <button
+            onClick={toggleTimer}
+            className={`grid min-h-[44px] min-w-[44px] place-items-center rounded-xl transition-all duration-200 ${
+              isRunning 
+                ? 'bg-white/[0.1] text-white hover:bg-red-500/20 hover:text-red-400 border border-white/[0.1]' 
+                : 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+            }`}
           >
-            <RotateCcw size={16} />
+            {isRunning ? <Square size={16} className="fill-current" /> : <Play size={18} className="fill-current ml-1" />}
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }

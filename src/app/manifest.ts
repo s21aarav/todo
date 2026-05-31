@@ -2,13 +2,16 @@ import { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Space Productivity PWA",
-    short_name: "SpacePWA",
-    description: "Extreme efficiency developer-focused workflows in a space UI",
+    name: "ToDoYourDo",
+    short_name: "ToDoYourDo",
+    description: "Your premium productivity workspace",
     start_url: "/",
+    scope: "/",
     display: "standalone",
-    background_color: "#020202",
-    theme_color: "#020202",
+    orientation: "any",
+    background_color: "#000000",
+    theme_color: "#000000",
+    categories: ["productivity", "utilities"],
     icons: [
       {
         src: "/icon-192.png",
@@ -19,6 +22,7 @@ export default function manifest(): MetadataRoute.Manifest {
         src: "/icon-512.png",
         sizes: "512x512",
         type: "image/png",
+        purpose: "maskable",
       },
     ],
   };

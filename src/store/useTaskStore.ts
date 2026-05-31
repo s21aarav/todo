@@ -95,8 +95,11 @@ export const useTaskStore = create<TaskState>()(
           console.error("Error fetching tasks:", error);
         }
 
+        // Clean up any existing subscription before creating a new one
+        supabase.removeChannel(supabase.channel('tasks-realtime'));
+
         // Realtime Subscription
-        supabase.channel('custom-all-channel')
+        supabase.channel('tasks-realtime')
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'tasks' },

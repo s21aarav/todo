@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Task, TaskEnergy, TaskPriority, TaskStatus, useTaskStore } from '@/store/useTaskStore';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -10,56 +10,120 @@ const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'critical'];
 const ENERGY: TaskEnergy[] = ['light', 'medium', 'deep'];
 const STATUSES: TaskStatus[] = ['backlog', 'scheduled', 'completed'];
 
+const PRIORITY_PILL: Record<TaskPriority, string> = {
+  low: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+  medium: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20',
+  high: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+  critical: 'bg-rose-500/15 text-rose-400 border-rose-500/20',
+};
+
+const STATUS_PILL: Record<TaskStatus, string> = {
+  backlog: 'bg-white/[0.06] text-neutral-400 border-white/[0.08]',
+  scheduled: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20',
+  completed: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+};
+
+const ENERGY_PILL: Record<TaskEnergy, string> = {
+  light: 'bg-white/[0.06] text-neutral-400 border-white/[0.08]',
+  medium: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+  deep: 'bg-rose-500/15 text-rose-400 border-rose-500/20',
+};
+
 function initialTime(task: Task) {
   if (!task.scheduledTime) return '09:00';
   const scheduled = new Date(task.scheduledTime);
   return `${scheduled.getHours().toString().padStart(2, '0')}:${scheduled.getMinutes().toString().padStart(2, '0')}`;
 }
 
-function TaskModalContent({ task }: { task: Task }) {
+export default function TaskModal() {
+  const selectedTaskId = useTaskStore((state) => state.selectedTaskId);
+  const tasks = useTaskStore((state) => state.tasks);
+  const task = tasks.find((t) => t.id === selectedTaskId);
+  
   const setSelectedTask = useTaskStore((state) => state.setSelectedTask);
   const updateTask = useTaskStore((state) => state.updateTask);
   const addSubtask = useTaskStore((state) => state.addSubtask);
   const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
   const deleteSubtask = useTaskStore((state) => state.deleteSubtask);
 
-  const [title, setTitle] = useState(task.title);
-  const [notes, setNotes] = useState(task.notes || '');
-  const [tags, setTags] = useState((task.tags ?? []).join(', '));
-  const [priority, setPriority] = useState<TaskPriority>(task.priority ?? 'medium');
-  const [energy, setEnergy] = useState<TaskEnergy>(task.energy ?? 'medium');
-  const [duration, setDuration] = useState(task.duration ?? 30);
-  const [status, setStatus] = useState<TaskStatus>(task.status);
-  const [date, setDate] = useState(task.date);
-  const [time, setTime] = useState(initialTime(task));
+  // Use refs to keep track of current values for unmount auto-save
+  const stateRef = useRef({
+    title: task?.title || '',
+    notes: task?.notes || '',
+    tags: (task?.tags ?? []).join(', '),
+    priority: task?.priority ?? 'medium',
+    energy: task?.energy ?? 'medium',
+    duration: task?.duration ?? 30,
+    status: task?.status || 'backlog',
+    date: task?.date || '',
+    time: task ? initialTime(task) : '09:00',
+  });
+
+  const [title, setTitle] = useState(stateRef.current.title);
+  const [notes, setNotes] = useState(stateRef.current.notes);
+  const [tags, setTags] = useState(stateRef.current.tags);
+  const [priority, setPriority] = useState<TaskPriority>(stateRef.current.priority);
+  const [energy, setEnergy] = useState<TaskEnergy>(stateRef.current.energy);
+  const [duration, setDuration] = useState(stateRef.current.duration);
+  const [status, setStatus] = useState<TaskStatus>(stateRef.current.status);
+  const [date, setDate] = useState(stateRef.current.date);
+  const [time, setTime] = useState(stateRef.current.time);
   const [newSubtask, setNewSubtask] = useState('');
 
-  const completion = useMemo(() => {
+  // Update refs when state changes
+  useEffect(() => {
+    stateRef.current = { title, notes, tags, priority, energy, duration, status, date, time };
+  }, [title, notes, tags, priority, energy, duration, status, date, time]);
+
+  // Reset state when task changes
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title);
+      setNotes(task.notes || '');
+      setTags((task.tags ?? []).join(', '));
+      setPriority(task.priority ?? 'medium');
+      setEnergy(task.energy ?? 'medium');
+      setDuration(task.duration ?? 30);
+      setStatus(task.status);
+      setDate(task.date);
+      setTime(initialTime(task));
+    }
+  }, [task?.id]); // Only run when task ID changes
+
+  // Auto-save on unmount
+  useEffect(() => {
+    if (!task) return;
+    
+    return () => {
+      const state = stateRef.current;
+      const cleanTags = state.tags
+        .split(',')
+        .map((tag) => tag.trim().replace(/^#/, '').toLowerCase())
+        .filter(Boolean);
+      const scheduledTime = state.status === 'scheduled' ? new Date(`${state.date}T${state.time}:00`).toISOString() : undefined;
+
+      updateTask(task.id, {
+        title: state.title.trim() || task.title,
+        notes: state.notes,
+        tags: cleanTags,
+        priority: state.priority,
+        energy: state.energy,
+        duration: state.duration,
+        status: state.status,
+        date: state.date,
+        scheduledTime,
+        completedAt: state.status === 'completed' && task.status !== 'completed' ? new Date().toISOString() : undefined,
+      });
+    };
+  }, [task?.id, updateTask]);
+
+  if (!task) return null;
+
+  const completion = (() => {
     const subtasks = task.subtasks ?? [];
     if (!subtasks.length) return 0;
     return Math.round((subtasks.filter((subtask) => subtask.completed).length / subtasks.length) * 100);
-  }, [task.subtasks]);
-
-  const saveTask = () => {
-    const cleanTags = tags
-      .split(',')
-      .map((tag) => tag.trim().replace(/^#/, '').toLowerCase())
-      .filter(Boolean);
-    const scheduledTime = status === 'scheduled' ? new Date(`${date}T${time}:00`).toISOString() : undefined;
-
-    updateTask(task.id, {
-      title: title.trim() || task.title,
-      notes,
-      tags: cleanTags,
-      priority,
-      energy,
-      duration,
-      status,
-      date,
-      scheduledTime,
-      completedAt: status === 'completed' ? task.completedAt ?? new Date().toISOString() : undefined,
-    });
-  };
+  })();
 
   const handleAddSubtask = (event: React.FormEvent) => {
     event.preventDefault();
@@ -69,162 +133,261 @@ function TaskModalContent({ task }: { task: Task }) {
   };
 
   return (
-    <div
-      className="glass-panel flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl shadow-2xl shadow-black/50"
-      onClick={(event) => event.stopPropagation()}
+    <div 
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xl sm:p-6"
+      onClick={() => setSelectedTask(null)} // Clicking backdrop closes modal, triggering unmount auto-save
     >
-      <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/40 p-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/80">
-            <Sparkles size={13} />
-            Task cockpit
+      <div
+        className="flex flex-col w-full h-full sm:h-[85vh] sm:max-h-[800px] sm:max-w-4xl sm:rounded-2xl border-0 sm:border border-white/[0.06] bg-black sm:bg-white/[0.03] sm:backdrop-blur-3xl overflow-hidden shadow-2xl shadow-black/60 animate-fade-in"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {/* ── Header ── */}
+        <header className="shrink-0 border-b border-white/[0.06] bg-white/[0.02] p-4 safe-top">
+          <div className="flex items-start gap-4">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Task title"
+              className="min-w-0 flex-1 bg-transparent text-xl font-semibold text-white placeholder:text-neutral-600 focus:outline-none"
+            />
+            <button
+              onClick={() => setSelectedTask(null)}
+              className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl bg-white/[0.04] text-neutral-400 hover:bg-white/[0.08] hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
           </div>
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            className="mt-1 w-full min-w-0 bg-transparent text-xl font-semibold text-white outline-none placeholder:text-gray-600"
-            placeholder="Task title"
-          />
-        </div>
-        <button onClick={() => setSelectedTask(null)} className="grid size-10 shrink-0 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-white/10 hover:text-white">
-          <X size={22} />
-        </button>
-      </div>
+        </header>
 
-      <div className="grid min-h-0 flex-1 gap-0 overflow-y-auto lg:grid-cols-[320px_1fr]">
-        <aside className="border-b border-white/10 bg-black/25 p-4 lg:border-b-0 lg:border-r">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-              Status
-              <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2 text-sm normal-case text-white outline-none">
-                {STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-              Priority
-              <select value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2 text-sm normal-case text-white outline-none">
-                {PRIORITIES.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-              Energy
-              <select value={energy} onChange={(event) => setEnergy(event.target.value as TaskEnergy)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2 text-sm normal-case text-white outline-none">
-                {ENERGY.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-              Estimate
-              <input type="number" min={5} step={5} value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm normal-case text-white outline-none" />
-            </label>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
-              <CalendarClock size={14} />
-              Schedule
-            </div>
-            <div className="grid gap-2">
-              <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2 text-sm text-white outline-none" />
-              <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2 text-sm text-white outline-none" />
-            </div>
-          </div>
-
-          <label className="mt-4 flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-            Tags
-            <input value={tags} onChange={(event) => setTags(event.target.value)} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm normal-case text-white outline-none placeholder:text-gray-600" placeholder="exam, revision, build" />
-          </label>
-
-          <div className="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] p-3">
-            <div className="flex items-center justify-between text-sm text-emerald-100">
-              <span className="flex items-center gap-2"><ListChecks size={15} /> Progress</span>
-              <span className="font-mono">{completion}%</span>
-            </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/30">
-              <div className="h-full rounded-full bg-emerald-300" style={{ width: `${completion}%` }} />
-            </div>
-          </div>
-        </aside>
-
-        <section className="min-w-0 p-4">
-          <div className="grid gap-4 xl:grid-cols-2">
-            <div className="min-w-0">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-white">
-                  <Timer size={15} />
-                  Notes
-                </h3>
-                <button onClick={saveTask} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white px-3 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-200">
-                  <Save size={15} />
-                  Save
-                </button>
-              </div>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                className="min-h-[340px] w-full resize-none rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm text-gray-200 outline-none placeholder:text-gray-600"
-                placeholder="Markdown notes"
-              />
-            </div>
-
-            <div className="min-w-0">
-              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-white">
-                <Flag size={15} />
-                Preview & subtasks
+        {/* ── Body ── */}
+        <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+          
+          {/* Main Content Area (Notes & Subtasks) */}
+          <div className="min-h-0 flex-1 overflow-y-auto border-b sm:border-b-0 sm:border-r border-white/[0.06] p-4 sm:p-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            
+            {/* Notes Section */}
+            <section className="mb-8">
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                <Sparkles size={14} /> Notes
               </h3>
-              <div className="min-h-[160px] rounded-xl border border-white/10 bg-white/[0.04] p-4">
-                <div className="prose prose-invert prose-sm max-w-none text-gray-300 prose-a:text-emerald-200 prose-strong:text-white">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Write in markdown..."
+                  className="w-full min-h-[200px] sm:min-h-[300px] rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-neutral-300 placeholder:text-neutral-600 focus:border-emerald-500/30 focus:bg-white/[0.04] focus:outline-none transition-colors resize-none"
+                />
+                <div className="min-h-[200px] sm:min-h-[300px] rounded-xl border border-white/[0.04] bg-white/[0.01] p-4 text-sm text-neutral-300 prose prose-invert prose-emerald max-w-none prose-p:leading-relaxed overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {notes ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{notes}</ReactMarkdown>
                   ) : (
-                    <span className="text-gray-600">No notes yet.</span>
+                    <span className="text-neutral-600">Preview will appear here...</span>
                   )}
                 </div>
               </div>
+            </section>
 
-              <form onSubmit={handleAddSubtask} className="mt-4 flex gap-2">
+            {/* Subtasks Section */}
+            <section>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                  <ListChecks size={14} /> Subtasks
+                </h3>
+                {task.subtasks && task.subtasks.length > 0 && (
+                  <span className="text-xs font-mono text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                    {completion}% Done
+                  </span>
+                )}
+              </div>
+
+              <form onSubmit={handleAddSubtask} className="flex gap-2">
                 <input
+                  type="text"
                   value={newSubtask}
-                  onChange={(event) => setNewSubtask(event.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-gray-600"
-                  placeholder="Add subtask"
+                  onChange={(e) => setNewSubtask(e.target.value)}
+                  className="min-w-0 flex-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:border-emerald-500/30 focus:bg-white/[0.04] focus:outline-none transition-colors"
+                  placeholder="Add a subtask..."
                 />
-                <button type="submit" className="grid size-10 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-white transition-colors hover:bg-white/10">
+                <button
+                  type="submit"
+                  disabled={!newSubtask.trim()}
+                  className="grid min-h-[44px] min-w-[44px] place-items-center rounded-xl bg-white/[0.06] text-white hover:bg-white/10 disabled:opacity-50 transition-colors"
+                >
                   <Plus size={18} />
                 </button>
               </form>
 
-              <div className="mt-3 flex max-h-56 flex-col gap-2 overflow-y-auto">
+              <div className="mt-3 flex flex-col gap-2">
                 {(task.subtasks ?? []).map((subtask) => (
-                  <div key={subtask.id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 p-2">
-                    <button type="button" onClick={() => toggleSubtask(task.id, subtask.id)} className={`grid size-7 shrink-0 place-items-center rounded-full border ${subtask.completed ? 'border-emerald-300/30 bg-emerald-300/20 text-emerald-100' : 'border-white/15 text-gray-500'}`}>
+                  <div
+                    key={subtask.id}
+                    className="flex min-h-[44px] items-center gap-3 rounded-xl border border-white/[0.04] bg-white/[0.02] p-2 hover:bg-white/[0.04] transition-colors"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleSubtask(task.id, subtask.id)}
+                      className={`grid min-h-[36px] min-w-[36px] shrink-0 place-items-center rounded-full border transition-all duration-200 ${
+                        subtask.completed
+                          ? 'border-emerald-500/30 bg-emerald-500/20 text-emerald-400'
+                          : 'border-white/[0.12] text-neutral-500 hover:border-emerald-500/30 hover:text-emerald-400'
+                      }`}
+                    >
                       {subtask.completed && <Check size={14} />}
                     </button>
-                    <span className={`min-w-0 flex-1 truncate text-sm text-gray-200 ${subtask.completed ? 'line-through opacity-60' : ''}`}>{subtask.title}</span>
-                    <button type="button" onClick={() => deleteSubtask(task.id, subtask.id)} className="grid size-8 place-items-center rounded-md text-gray-600 transition-colors hover:bg-rose-400/10 hover:text-rose-200">
-                      <X size={14} />
+                    <span
+                      className={`min-w-0 flex-1 text-sm ${
+                        subtask.completed ? 'text-neutral-500 line-through' : 'text-neutral-300'
+                      }`}
+                    >
+                      {subtask.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => deleteSubtask(task.id, subtask.id)}
+                      className="grid min-h-[36px] min-w-[36px] place-items-center rounded-lg text-neutral-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                    >
+                      <X size={16} />
                     </button>
                   </div>
                 ))}
               </div>
+            </section>
+          </div>
+
+          {/* Sidebar / Meta Properties */}
+          <div className="flex w-full sm:w-72 shrink-0 flex-col overflow-y-auto bg-black/20 p-4 sm:p-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex-1 space-y-6">
+              
+              {/* Status */}
+              <div>
+                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Status</label>
+                <div className="flex flex-wrap gap-2">
+                  {STATUSES.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setStatus(s)}
+                      className={`min-h-[36px] rounded-lg border px-3 text-xs font-semibold capitalize transition-all duration-200 ${
+                        status === s ? STATUS_PILL[s] : 'border-transparent bg-white/[0.04] text-neutral-500 hover:bg-white/[0.08]'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Priority */}
+              <div>
+                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Priority</label>
+                <div className="flex flex-wrap gap-2">
+                  {PRIORITIES.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPriority(p)}
+                      className={`min-h-[36px] rounded-lg border px-3 text-xs font-semibold capitalize transition-all duration-200 ${
+                        priority === p ? PRIORITY_PILL[p] : 'border-transparent bg-white/[0.04] text-neutral-500 hover:bg-white/[0.08]'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Energy */}
+              <div>
+                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Energy</label>
+                <div className="flex flex-wrap gap-2">
+                  {ENERGY.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => setEnergy(e)}
+                      className={`min-h-[36px] rounded-lg border px-3 text-xs font-semibold capitalize transition-all duration-200 ${
+                        energy === e ? ENERGY_PILL[e] : 'border-transparent bg-white/[0.04] text-neutral-500 hover:bg-white/[0.08]'
+                      }`}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Schedule */}
+              <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div>
+                  <label className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                    <CalendarClock size={12} /> Date
+                  </label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 text-sm text-white focus:border-emerald-500/30 focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                      <Timer size={12} /> Duration
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={duration}
+                        onChange={(e) => setDuration(parseInt(e.target.value) || 0)}
+                        className="w-full rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-sm text-white focus:border-emerald-500/30 focus:outline-none"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">min</span>
+                    </div>
+                  </div>
+                  
+                  {status === 'scheduled' && (
+                    <div className="animate-fade-in">
+                      <label className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                        Time
+                      </label>
+                      <input
+                        type="time"
+                        value={time}
+                        onChange={(e) => setTime(e.target.value)}
+                        className="w-full rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 text-sm text-white focus:border-emerald-500/30 focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                  <Flag size={12} /> Tags
+                </label>
+                <input
+                  type="text"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="work, health, urgent"
+                  className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-sm text-white focus:border-emerald-500/30 focus:bg-white/[0.04] focus:outline-none transition-colors"
+                />
+              </div>
+
+            </div>
+
+            {/* Save Button */}
+            <div className="mt-6 shrink-0 pt-4 border-t border-white/[0.06] pb-4 sm:pb-0 safe-bottom">
+              <button
+                onClick={() => setSelectedTask(null)}
+                className="flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 font-bold text-black hover:bg-emerald-400 transition-colors"
+              >
+                <Save size={18} />
+                Done
+              </button>
             </div>
           </div>
-        </section>
+        </div>
       </div>
-    </div>
-  );
-}
-
-export default function TaskModal() {
-  const selectedTaskId = useTaskStore((state) => state.selectedTaskId);
-  const setSelectedTask = useTaskStore((state) => state.setSelectedTask);
-  const tasks = useTaskStore((state) => state.tasks);
-  const task = tasks.find(t => t.id === selectedTaskId);
-
-  if (!task) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-md sm:p-4" onClick={() => setSelectedTask(null)}>
-      <TaskModalContent key={task.id} task={task} />
     </div>
   );
 }

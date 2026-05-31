@@ -21,56 +21,36 @@ import TaskCard from './TaskCard';
 import GoalsWidget from './GoalsWidget';
 import FocusTimer from './FocusTimer';
 import SleekCalendar from './SleekCalendar';
-import UpcomingEvents from './UpcomingEvents';
 import MissionPulse from './MissionPulse';
 import UserProfile from './UserProfile';
 import { format, parseISO } from 'date-fns';
-import { LogOut, CalendarCheck2, CalendarDays, Clock3, ListTodo, Sparkles } from 'lucide-react';
+import { CalendarCheck2, CalendarDays, Clock3, ListTodo, Sparkles, Target, Settings } from 'lucide-react';
 import { useIsClient } from '@/hooks/useIsClient';
 import { useAuth } from '@/components/AuthProvider';
 import { useGoalStore } from '@/store/useGoalStore';
 import { getQuoteOfDay } from '@/lib/quotes';
 
-import { supabase } from '@/lib/supabaseClient';
+type MobileTab = 'tasks' | 'schedule' | 'goals' | 'more';
 
-type MobileView = 'plan' | 'queue' | 'blocks';
-
-const MOBILE_VIEWS: { label: string; value: MobileView; icon: typeof CalendarDays }[] = [
-  { label: 'Plan', value: 'plan', icon: CalendarDays },
-  { label: 'Queue', value: 'queue', icon: ListTodo },
-  { label: 'Blocks', value: 'blocks', icon: Clock3 },
+const MOBILE_TABS: { label: string; value: MobileTab; icon: typeof ListTodo }[] = [
+  { label: 'Tasks', value: 'tasks', icon: ListTodo },
+  { label: 'Schedule', value: 'schedule', icon: Clock3 },
+  { label: 'Goals', value: 'goals', icon: Target },
+  { label: 'More', value: 'more', icon: Settings },
 ];
-
-function InsightRail({ showTimer }: { showTimer: boolean }) {
-  return (
-    <div className="flex h-full min-h-0 w-full flex-col gap-4 overflow-hidden">
-      {showTimer && <FocusTimer />}
-      <MissionPulse />
-    </div>
-  );
-}
 
 export default function Workspace() {
   const tasks = useTaskStore((state) => state.tasks);
   const moveTask = useTaskStore((state) => state.moveTask);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [mobileView, setMobileView] = useState<MobileView>('queue');
-  const showTimeBlock = useTaskStore((state) => state.showTimeBlock);
-  const showTimer = useTaskStore((state) => state.showTimer);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('tasks');
   const selectedDate = useTaskStore((state) => state.selectedDate);
+  const showTimer = useTaskStore((state) => state.showTimer);
   
-  // Hydration fix for zustand
   const mounted = useIsClient();
-  const { session, signOut } = useAuth();
+  const { session } = useAuth();
   const clearTasks = useTaskStore(state => state.clearTasks);
   const clearGoals = useGoalStore(state => state.clearGoals);
-
-  const handleSignOut = async () => {
-    clearTasks();
-    clearGoals();
-    await signOut();
-  };
 
   const fetchTasks = useTaskStore(state => state.fetchTasks);
   useEffect(() => {
@@ -79,15 +59,10 @@ export default function Workspace() {
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
+      activationConstraint: { distance: 5 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 200,
-        tolerance: 5,
-      },
+      activationConstraint: { delay: 250, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -95,20 +70,16 @@ export default function Workspace() {
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const task = tasks.find((t) => t.id === active.id);
+    const task = tasks.find((t) => t.id === event.active.id);
     if (task) setActiveTask(task);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
-
     if (!over) return;
-
     const activeId = active.id as string;
     const overId = over.id as string;
-
     if (overId === 'backlog') {
       moveTask(activeId, 'backlog', undefined, selectedDate);
     } else if (overId.startsWith('time-slot-')) {
@@ -118,17 +89,13 @@ export default function Workspace() {
     }
   };
 
-  if (!mounted) return null; // Avoid SSR hydration mismatch with persistence
+  if (!mounted) return null;
 
   const dayTasks = tasks.filter((task) => task.date === selectedDate);
   const completedCount = dayTasks.filter((task) => task.status === 'completed').length;
-  const scheduledMinutes = dayTasks.reduce((total, task) => {
-    if (task.status !== 'scheduled') return total;
-    return total + (task.duration ?? 30);
-  }, 0);
-  const totalOpen = dayTasks.filter((task) => task.status !== 'completed').length;
+  const totalTasks = dayTasks.length;
+  const scheduledCount = dayTasks.filter((task) => task.status === 'scheduled').length;
   const selectedLabel = format(parseISO(selectedDate), 'EEE, MMM d');
-  
   const quote = getQuoteOfDay();
 
   return (
@@ -138,134 +105,169 @@ export default function Workspace() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex w-full max-w-[1540px] flex-1 flex-col gap-3 sm:h-full sm:min-h-0 sm:gap-4">
-        {!isExpanded && (
-          <header className="glass-panel flex shrink-0 flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 relative">
-            <div className="min-w-0 flex items-start justify-between sm:block">
-              <div>
-                <div className="flex items-start gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200/80 sm:text-xs">
-                  <Sparkles size={14} className="shrink-0 mt-0.5" />
-                  <span className="leading-snug max-w-[260px] sm:max-w-md">{quote}</span>
-                </div>
-                <h1 className="mt-1 truncate text-xl font-semibold text-white sm:text-3xl">
-                  {selectedLabel}
-                </h1>
-              </div>
-              <div className="sm:hidden absolute right-4 top-3">
-                <UserProfile />
-              </div>
+      {/* ==================== MOBILE LAYOUT ==================== */}
+      <div className="flex flex-1 flex-col lg:hidden">
+        {/* Mobile Header */}
+        <header className="relative shrink-0 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div className="flex items-start justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-emerald-400/80">
+                <Sparkles size={11} className="shrink-0" />
+                <span className="truncate">{quote}</span>
+              </p>
+              <h1 className="mt-0.5 text-2xl font-bold text-white">{selectedLabel}</h1>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-xs sm:min-w-[420px] sm:text-sm">
-              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2 sm:p-3">
-                <div className="flex items-center gap-1.5 text-gray-400 sm:gap-2">
-                  <ListTodo size={15} />
-                  Open
-                </div>
-                <div className="mt-1 text-lg font-semibold text-white sm:text-xl">{totalOpen}</div>
-              </div>
-              <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/[0.08] p-2 sm:p-3">
-                <div className="flex items-center gap-1.5 text-emerald-100/80 sm:gap-2">
-                  <CalendarCheck2 size={15} />
-                  Done
-                </div>
-                <div className="mt-1 text-lg font-semibold text-white sm:text-xl">{completedCount}</div>
-              </div>
-              <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.08] p-2 sm:p-3">
-                <div className="flex items-center gap-1.5 text-amber-100/80 sm:gap-2">
-                  <Clock3 size={15} />
-                  Blocked
-                </div>
-                <div className="mt-1 text-lg font-semibold text-white sm:text-xl">{Math.round(scheduledMinutes / 60 * 10) / 10}h</div>
-              </div>
-            </div>
-          </header>
-        )}
-
-        <div className="relative flex flex-1 flex-col gap-3 sm:min-h-0 lg:flex-row lg:gap-4">
-          <div className={`hidden min-h-0 flex-col gap-4 overflow-hidden transition-all duration-300 lg:flex ${isExpanded ? 'w-full flex-1' : 'lg:flex-[0.78]'}`}>
-            <div className={isExpanded ? 'min-h-0 flex-1' : 'min-h-0 shrink-0'}>
-              <SleekCalendar isExpanded={isExpanded} onToggleExpand={() => setIsExpanded(!isExpanded)} />
+            <div className="shrink-0 ml-3">
+              <UserProfile />
             </div>
           </div>
 
-          {!isExpanded && (
-            <div className="glass-panel hidden min-h-0 flex-col overflow-hidden rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-300 lg:flex lg:flex-[2]">
+          {/* Stats row */}
+          <div className="mt-3 flex gap-2">
+            <div className="flex-1 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-500">Total</p>
+              <p className="text-lg font-bold text-white">{totalTasks}</p>
+            </div>
+            <div className="flex-1 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/[0.1] px-3 py-2">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-400/70">Done</p>
+              <p className="text-lg font-bold text-white">{completedCount}</p>
+            </div>
+            <div className="flex-1 rounded-xl bg-amber-500/[0.06] border border-amber-500/[0.1] px-3 py-2">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-amber-400/70">Scheduled</p>
+              <p className="text-lg font-bold text-white">{scheduledCount}</p>
+            </div>
+          </div>
+        </header>
+
+        {/* Mobile Tab Content */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-24">
+          {mobileTab === 'tasks' && (
+            <div className="glass-card animate-fade-in overflow-hidden">
               <BacklogList />
             </div>
           )}
 
-          {!isExpanded && showTimeBlock && (
-            <div className="hidden min-h-0 flex-col gap-4 animate-in slide-in-from-right-4 duration-300 lg:flex lg:flex-[1.25]">
-              <div className="glass-panel flex min-h-0 flex-[1.6] flex-col overflow-hidden rounded-xl">
-                <CalendarGrid />
-              </div>
-              <div className="min-h-0 flex-[0.85]">
-                <MissionPulse />
-              </div>
+          {mobileTab === 'schedule' && (
+            <div className="glass-card animate-fade-in overflow-hidden">
+              <CalendarGrid />
             </div>
           )}
 
-          {!isExpanded && !showTimeBlock && (
-            <aside className="hidden min-h-0 animate-in fade-in slide-in-from-right-4 duration-300 lg:flex lg:flex-[0.95]">
-              <InsightRail showTimer={showTimer} />
-            </aside>
+          {mobileTab === 'goals' && (
+            <div className="flex flex-col gap-3 animate-fade-in">
+              <SleekCalendar />
+              <GoalsWidget />
+            </div>
           )}
 
-          {!isExpanded && (
-            <div className="flex flex-1 flex-col gap-3 sm:min-h-0 lg:hidden">
+          {mobileTab === 'more' && (
+            <div className="flex flex-col gap-3 animate-fade-in">
               {showTimer && <FocusTimer />}
-              <div className="glass-panel grid shrink-0 grid-cols-3 gap-1 rounded-xl p-1">
-                {MOBILE_VIEWS.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.value}
-                      type="button"
-                      onClick={() => setMobileView(item.value)}
-                      className={`flex items-center justify-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold transition-colors ${
-                        mobileView === item.value
-                          ? 'bg-white text-black'
-                          : 'text-gray-400 hover:bg-white/10 hover:text-white'
-                      }`}
-                    >
-                      <Icon size={15} />
-                      {item.label}
-                    </button>
-                  );
-                })}
+              <MissionPulse />
+              <div className="glass-card p-4">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-400">Account</h3>
+                <UserProfile isDesktop />
               </div>
-
-              <div className={`${mobileView === 'plan' ? 'flex' : 'hidden'} flex-1 flex-col gap-3 sm:min-h-0 sm:overflow-hidden`}>
-                <SleekCalendar isExpanded={false} onToggleExpand={() => setIsExpanded(true)} />
-                <div className="flex-1 pb-6 sm:min-h-0 sm:overflow-y-auto">
-                  <div className="flex flex-col gap-3">
-                    <GoalsWidget />
-                    <UpcomingEvents />
-                  </div>
-                </div>
-              </div>
-
-              <div className={`${mobileView === 'queue' ? 'flex' : 'hidden'} glass-panel h-[calc(100dvh-150px)] flex-col rounded-xl sm:h-auto sm:flex-1 sm:min-h-0 sm:overflow-hidden`}>
-                <BacklogList />
-              </div>
-
-              <div className={`${mobileView === 'blocks' ? 'flex' : 'hidden'} glass-panel h-[calc(100dvh-150px)] flex-col rounded-xl sm:h-auto sm:flex-1 sm:min-h-0 sm:overflow-hidden`}>
-                <CalendarGrid />
-              </div>
-            </div>
-          )}
-
-          {isExpanded && (
-            <div className="flex min-h-0 flex-1 lg:hidden">
-              <SleekCalendar isExpanded={isExpanded} onToggleExpand={() => setIsExpanded(false)} />
             </div>
           )}
         </div>
+
+        {/* Bottom Navigation */}
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.06] bg-black/80 backdrop-blur-2xl safe-bottom">
+          <div className="flex items-stretch">
+            {MOBILE_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = mobileTab === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  onClick={() => setMobileTab(tab.value)}
+                  className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 transition-all duration-200 ${
+                    isActive
+                      ? 'text-emerald-400'
+                      : 'text-neutral-500 active:text-neutral-300'
+                  }`}
+                >
+                  <Icon size={20} strokeWidth={isActive ? 2.5 : 1.5} />
+                  <span className={`text-[10px] font-medium ${isActive ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                    {tab.label}
+                  </span>
+                  {isActive && (
+                    <div className="absolute top-0 h-[2px] w-12 rounded-full bg-emerald-400" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
       </div>
 
-      {/* Desktop Profile Widget */}
-      <div className="hidden sm:block fixed bottom-6 right-6 z-50">
-        <UserProfile isDesktop />
+      {/* ==================== DESKTOP LAYOUT ==================== */}
+      <div className="hidden h-full min-h-0 lg:flex lg:flex-col">
+        {/* Desktop Header */}
+        <header className="shrink-0 px-6 pb-4 pt-5">
+          <div className="mx-auto flex max-w-[1600px] items-center justify-between">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-emerald-400/80">
+                <Sparkles size={14} className="shrink-0" />
+                {quote}
+              </p>
+              <h1 className="mt-1 text-3xl font-bold text-white">{selectedLabel}</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex gap-3">
+                <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-2 text-center">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-500">Total</p>
+                  <p className="text-xl font-bold text-white">{totalTasks}</p>
+                </div>
+                <div className="rounded-xl bg-emerald-500/[0.06] border border-emerald-500/[0.1] px-4 py-2 text-center">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-400/70">Done</p>
+                  <p className="text-xl font-bold text-white">{completedCount}</p>
+                </div>
+                <div className="rounded-xl bg-amber-500/[0.06] border border-amber-500/[0.1] px-4 py-2 text-center">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-amber-400/70">Scheduled</p>
+                  <p className="text-xl font-bold text-white">{scheduledCount}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Desktop 3-Column Layout */}
+        <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 gap-4 px-6 pb-6">
+          {/* Left Column: Calendar + Goals */}
+          <div className="flex w-[300px] shrink-0 flex-col gap-4 overflow-hidden">
+            <SleekCalendar />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <GoalsWidget />
+            </div>
+          </div>
+
+          {/* Center: Task List */}
+          <div className="glass-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <BacklogList />
+          </div>
+
+          {/* Right Column: Schedule + MissionPulse */}
+          <div className="flex w-[340px] shrink-0 flex-col gap-4 overflow-hidden">
+            <div className="glass-card flex min-h-0 flex-[1.8] flex-col overflow-hidden">
+              <CalendarGrid />
+            </div>
+            <div className="shrink-0">
+              <MissionPulse />
+            </div>
+            {showTimer && (
+              <div className="shrink-0">
+                <FocusTimer />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop Profile Widget */}
+        <div className="fixed bottom-5 right-5 z-50">
+          <UserProfile isDesktop />
+        </div>
       </div>
 
       <DragOverlay>

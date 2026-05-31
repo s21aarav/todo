@@ -1,152 +1,171 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-
-interface Star {
-  x: number;
-  y: number;
-  size: number;
-  speed: number;
-  opacity: number;
-}
-
-interface Comet {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  length: number;
-  opacity: number;
-}
+import { useEffect, useRef, useState } from 'react';
 
 export default function StarfieldBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    // Check for reduced motion preference
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(mediaQuery.matches);
+    
+    const handleChange = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    let animationFrameId: number;
     let width = window.innerWidth;
     let height = window.innerHeight;
-    let frame = 0;
+    
+    // Determine star count based on screen size (performance optimization)
+    const STAR_COUNT = width < 768 ? 400 : 600;
 
-    const setCanvasSize = () => {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
-    };
+    canvas.width = width;
+    canvas.height = height;
 
-    setCanvasSize();
-    window.addEventListener("resize", setCanvasSize);
+    // --- Nebula Glows (drawn once to a separate canvas if needed, or just drawn per frame if simple) ---
+    // We'll draw them per frame but they are static
+    const nebulae = [
+      { x: width * 0.2, y: height * 0.3, radius: width * 0.4, color: 'rgba(16, 185, 129, 0.03)' },
+      { x: width * 0.8, y: height * 0.7, radius: width * 0.5, color: 'rgba(56, 189, 248, 0.02)' },
+      { x: width * 0.5, y: height * 0.9, radius: width * 0.6, color: 'rgba(139, 92, 246, 0.02)' }
+    ];
 
-    const stars: Star[] = [];
-    const numStars = 800;
-
-    for (let i = 0; i < numStars; i++) {
+    // --- Stars ---
+    const stars: { x: number; y: number; radius: number; vx: number; vy: number; baseAlpha: number }[] = [];
+    for (let i = 0; i < STAR_COUNT; i++) {
       stars.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        size: Math.random() * 1.5 + 0.2,
-        speed: Math.random() * 0.3 + 0.05, // Sped up the stars!
-        opacity: Math.random() * 0.6 + 0.2,
+        radius: Math.random() * 1.5,
+        vx: (Math.random() - 0.5) * 0.2,
+        vy: (Math.random() - 0.5) * 0.2,
+        baseAlpha: Math.random() * 0.7 + 0.1
       });
     }
 
-    const comets: Comet[] = [];
+    // --- Comets ---
+    let comets: { x: number; y: number; vx: number; vy: number; length: number; life: number; maxLife: number }[] = [];
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // Draw stars
-      for (const star of stars) {
-        star.y -= star.speed;
+      // Draw Nebulae
+      nebulae.forEach(n => {
+        const gradient = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.radius);
+        gradient.addColorStop(0, n.color);
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+      });
 
-        star.opacity += (Math.random() - 0.5) * 0.05;
-        if (star.opacity < 0.2) star.opacity = 0.2;
-        if (star.opacity > 1) star.opacity = 1;
+      // Update & Draw Stars
+      stars.forEach((star) => {
+        if (!reduceMotion) {
+          star.x += star.vx;
+          star.y += star.vy;
 
-        if (star.y < 0) {
-          star.y = height;
-          star.x = Math.random() * width;
+          if (star.x < 0) star.x = width;
+          if (star.x > width) star.x = 0;
+          if (star.y < 0) star.y = height;
+          if (star.y > height) star.y = 0;
         }
 
-        ctx.beginPath();
-        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
-        ctx.fill();
-      }
+        // Add a slight twinkle
+        const alpha = reduceMotion ? star.baseAlpha : Math.max(0.1, Math.min(1, star.baseAlpha + Math.sin(Date.now() * 0.001 + star.x) * 0.2));
 
-      // Randomly spawn comets (0.5% chance per frame)
-      if (Math.random() < 0.005) {
-        const spawnRight = Math.random() > 0.5;
-        const spawnX = spawnRight ? width + 50 : Math.random() * width;
-        const spawnY = spawnRight ? Math.random() * height * 0.5 : -50;
-        
-        comets.push({
-          x: spawnX,
-          y: spawnY,
-          vx: -(Math.random() * 5 + 5), // Fast to the left
-          vy: Math.random() * 3 + 3,    // Fast downwards
-          length: Math.random() * 100 + 80,
-          opacity: 1,
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 240, ${alpha})`; // Slightly warm white
+        ctx.fill();
+      });
+
+      // Update & Draw Comets
+      if (!reduceMotion) {
+        if (Math.random() < 0.003) { // Reduced spawn rate
+          comets.push({
+            x: Math.random() * width,
+            y: 0,
+            vx: Math.random() * 2 + 2,
+            vy: Math.random() * 2 + 2,
+            length: Math.random() * 100 + 50,
+            life: 0,
+            maxLife: Math.random() * 100 + 100
+          });
+        }
+
+        comets = comets.filter(c => c.life < c.maxLife);
+        comets.forEach((comet) => {
+          comet.x += comet.vx;
+          comet.y += comet.vy;
+          comet.life++;
+
+          const opacity = 1 - (comet.life / comet.maxLife);
+
+          ctx.beginPath();
+          ctx.moveTo(comet.x, comet.y);
+          ctx.lineTo(comet.x - comet.vx * (comet.length / 5), comet.y - comet.vy * (comet.length / 5));
+          ctx.strokeStyle = `rgba(255, 255, 240, ${opacity})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
         });
       }
+    };
 
-      // Draw comets
-      for (let i = comets.length - 1; i >= 0; i--) {
-        const comet = comets[i];
-        comet.x += comet.vx;
-        comet.y += comet.vy;
-        comet.opacity -= 0.003; // Fade out slowly
+    let lastTime = 0;
+    const fps = 60;
+    const interval = 1000 / fps;
 
-        if (comet.opacity <= 0 || comet.x < -comet.length || comet.y > height + comet.length) {
-          comets.splice(i, 1);
-          continue;
-        }
+    const animate = (time: number) => {
+      animationFrameId = requestAnimationFrame(animate);
+      
+      if (reduceMotion) {
+        draw();
+        cancelAnimationFrame(animationFrameId); // Draw once and stop
+        return;
+      }
 
-        const speed = Math.sqrt(comet.vx * comet.vx + comet.vy * comet.vy);
-        const tailX = comet.x - (comet.vx / speed) * comet.length;
-        const tailY = comet.y - (comet.vy / speed) * comet.length;
-
-        const gradient = ctx.createLinearGradient(comet.x, comet.y, tailX, tailY);
-        gradient.addColorStop(0, `rgba(255, 255, 255, ${comet.opacity})`);
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-        ctx.beginPath();
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 1.5;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = `rgba(255, 255, 255, ${comet.opacity})`;
-        
-        ctx.moveTo(comet.x, comet.y);
-        ctx.lineTo(tailX, tailY);
-        ctx.stroke();
-        
-        ctx.shadowBlur = 0; // reset for next drawing operations
+      // Throttle FPS for performance
+      const deltaTime = time - lastTime;
+      if (deltaTime > interval) {
+        lastTime = time - (deltaTime % interval);
+        draw();
       }
     };
 
-    const animate = () => {
-      draw();
-      frame = requestAnimationFrame(animate);
-    };
+    animate(0);
 
-    if (reduceMotion) {
-      draw();
-    } else {
-      animate();
-    }
+    let resizeTimeout: NodeJS.Timeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        if (reduceMotion) draw(); // Redraw once if motion reduced
+      }, 200);
+    };
+    
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      window.removeEventListener("resize", setCanvasSize);
-      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+      clearTimeout(resizeTimeout);
     };
-  }, []);
+  }, [reduceMotion]);
 
   return (
     <canvas

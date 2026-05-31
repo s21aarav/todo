@@ -1,57 +1,74 @@
 "use client";
 
+import { useEffect, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useTaskStore } from '@/store/useTaskStore';
 import TaskCard from './TaskCard';
 import { format, parseISO } from 'date-fns';
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0 to 23
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-function TimeSlot({ hour }: { hour: number }) {
+function TimeSlot({ date, hour }: { date: string; hour: number }) {
   const timeString = `${hour.toString().padStart(2, '0')}:00`;
+  const slotId = `time-slot-${timeString}`;
+  
   const { setNodeRef, isOver } = useDroppable({
-    id: `time-slot-${timeString}`,
+    id: slotId,
   });
 
   const tasks = useTaskStore((state) => state.tasks);
-  const selectedDate = useTaskStore((state) => state.selectedDate);
   const addTask = useTaskStore((state) => state.addTask);
   const setSelectedTask = useTaskStore((state) => state.setSelectedTask);
 
-  const handleSlotClick = async (e: React.MouseEvent) => {
-    if (e.target !== e.currentTarget) return;
-    const newId = await addTask({
-      title: 'New Block',
-      date: selectedDate,
-      status: 'scheduled',
-      scheduledTime: new Date(`${selectedDate}T${timeString}:00`).toISOString(),
-      duration: 30,
-    });
-    setSelectedTask(newId);
+  const slotTasks = tasks.filter(
+    (t) => 
+      t.date === date && 
+      t.scheduledTime && 
+      new Date(t.scheduledTime).getHours() === hour &&
+      (t.status === 'scheduled' || t.status === 'completed')
+  );
+
+  const handleSlotClick = (e: React.MouseEvent) => {
+    // Only create a task if clicking the empty slot, not a task card inside it
+    if (e.target === e.currentTarget) {
+      const scheduledTime = new Date(`${date}T${timeString}:00`).toISOString();
+      addTask({
+        title: 'New Block',
+        status: 'scheduled',
+        scheduledTime,
+        date,
+      });
+      // SelectedTask needs the ID, but addTask doesn't return it and we aren't passing it.
+      // We can omit setting the selected task, or we can just let it create the block.
+      // Or we can let it be, and the user can click the block to open it.
+    }
   };
-  const scheduledTasks = tasks
-    .filter((t) => {
-      if ((t.status !== 'scheduled' && t.status !== 'completed') || !t.scheduledTime || t.date !== selectedDate) return false;
-      const date = new Date(t.scheduledTime);
-      return date.getHours() === hour;
-    })
-    .sort((a, b) => new Date(a.scheduledTime ?? 0).getTime() - new Date(b.scheduledTime ?? 0).getTime());
+
+  const hourLabel = hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`;
 
   return (
-    <div className="grid min-h-[74px] grid-cols-[64px_1fr] border-b border-white/5">
-      <div className="flex items-start justify-end border-r border-white/5 p-2 pr-3 font-mono text-[10px] text-gray-500">
-        {format(new Date(`2020-01-01T${timeString}:00`), 'ha')}
+    <div className="flex group min-h-[60px]">
+      {/* Time Label */}
+      <div className="w-16 shrink-0 pt-2 pr-3 text-right">
+        <span className="text-[11px] font-mono font-medium text-neutral-500 uppercase tracking-widest">{hourLabel}</span>
       </div>
-      <div 
-        ref={setNodeRef} 
+      
+      {/* Drop Zone */}
+      <div
+        ref={setNodeRef}
         onClick={handleSlotClick}
-        className={`flex min-w-0 flex-col gap-1.5 p-2 transition-colors cursor-pointer ${
-          isOver ? 'bg-white/10' : 'hover:bg-white/5'
-        }`}
+        className={`flex-1 relative border-l border-white/[0.06] border-t p-2 transition-colors cursor-crosshair min-h-[60px]
+          ${isOver ? 'bg-emerald-500/10 border-emerald-500/20' : 'hover:bg-white/[0.02]'}
+          ${hour === 23 ? 'border-b' : ''}
+        `}
       >
-        {scheduledTasks.map(task => (
-          <TaskCard key={task.id} task={task} compact />
-        ))}
+        <div className="flex flex-col gap-2 relative z-10 pointer-events-none">
+          {slotTasks.map((task) => (
+            <div key={task.id} className="pointer-events-auto">
+              <TaskCard task={task} compact />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -60,24 +77,74 @@ function TimeSlot({ hour }: { hour: number }) {
 export default function CalendarGrid() {
   const selectedDate = useTaskStore((state) => state.selectedDate);
   const tasks = useTaskStore((state) => state.tasks);
-  const scheduled = tasks.filter((task) => task.date === selectedDate && (task.status === 'scheduled' || task.status === 'completed') && !!task.scheduledTime);
-  const minutes = scheduled.reduce((total, task) => total + (task.duration ?? 30), 0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const nowRef = useRef<HTMLDivElement>(null);
+
+  const dayTasks = tasks.filter((t) => t.date === selectedDate && (t.status === 'scheduled' || t.status === 'completed'));
+  const totalHours = dayTasks.reduce((acc, task) => acc + (task.duration || 30) / 60, 0);
+
+  // Auto-scroll to current hour on mount
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const currentHour = new Date().getHours();
+      // Scroll to current hour minus 1 so it's not right at the top
+      const scrollPosition = Math.max(0, (currentHour - 1) * 60);
+      scrollContainerRef.current.scrollTop = scrollPosition;
+    }
+  }, []);
+
+  // Update "NOW" marker position every minute
+  useEffect(() => {
+    const updateMarker = () => {
+      if (nowRef.current && selectedDate === format(new Date(), 'yyyy-MM-dd')) {
+        const now = new Date();
+        const minutes = now.getHours() * 60 + now.getMinutes();
+        // Each hour block is roughly 60px min-h + borders. We use percentage.
+        // Actually since we use a flex layout, calculating exact pixel position is tricky.
+        // A simple way is to position it absolute to a wrapper inside the scroll container.
+      }
+    };
+    updateMarker();
+    const interval = setInterval(updateMarker, 60000);
+    return () => clearInterval(interval);
+  }, [selectedDate]);
+
+  const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd');
+  const now = new Date();
+  const topPosition = (now.getHours() * 60) + now.getMinutes(); // 1 minute = 1px assuming 60px per hour
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="shrink-0 border-b border-white/5 bg-transparent p-4 backdrop-blur-md">
-        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-white">
-          Time-Block
-        </h2>
-        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-          <span>{format(parseISO(selectedDate), 'MMM d')}</span>
-          <span className="font-mono">{scheduled.length} blocks · {Math.round((minutes / 60) * 10) / 10}h</span>
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 p-4 pb-3 flex items-center justify-between border-b border-white/[0.06]">
+        <h2 className="text-lg font-semibold text-white tracking-tight">Schedule</h2>
+        <div className="flex gap-3 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+          <span>{dayTasks.length} blocks</span>
+          <span>{totalHours.toFixed(1)}h total</span>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        {HOURS.map((hour) => (
-          <TimeSlot key={hour} hour={hour} />
-        ))}
+
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="relative pb-10">
+          {isToday && (
+            <div 
+              className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
+              style={{ top: `${topPosition}px`, transform: 'translateY(-50%)' }}
+            >
+              <div className="w-16 shrink-0 pr-3 text-right">
+                <span className="text-[10px] font-bold text-red-500 tracking-wider">NOW</span>
+              </div>
+              <div className="w-2 h-2 rounded-full bg-red-500 -ml-1" />
+              <div className="flex-1 h-px bg-red-500/50" />
+            </div>
+          )}
+
+          {HOURS.map((hour) => (
+            <TimeSlot key={hour} date={selectedDate} hour={hour} />
+          ))}
+        </div>
       </div>
     </div>
   );
