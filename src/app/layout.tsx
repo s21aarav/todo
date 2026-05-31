@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ToDoYourDo",
   description: "Your premium productivity workspace — plan, schedule, and conquer your day.",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     title: "ToDoYourDo",
